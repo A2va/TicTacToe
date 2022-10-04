@@ -1,17 +1,26 @@
+/**
+ * TicTacToe
+ * Antoine Leresche
+ * 04.10.2022
+*/
+
 #include <iostream>
 #include <array>
 #include <string>
+#include <exception>
 
 
-// Enumeration of all the player
+// Enumeration of all the players
 enum class Player {CROSS, CIRCLE, NONE};
 
-// Size and map of the game
+// Size and map type
 const int SIZE = 3;
-std::array<std::array<Player, SIZE>, SIZE> MAP = {{{Player::NONE, Player::NONE, Player::NONE},   
-                                                    {Player::NONE, Player::NONE, Player::NONE},
-                                                    {Player::NONE, Player::NONE, Player::NONE}}};
+using game_map = std::array<std::array<Player, SIZE>, SIZE>;
 
+/**
+ * Switch between user CROSS and CIRCLE
+ * @param user user to change
+*/
 Player switchUser(Player user) {
     if(user == Player::CIRCLE){
         return Player::CROSS;
@@ -20,17 +29,17 @@ Player switchUser(Player user) {
 }
 
 /**
- * Check the win in vertical or horizontal
+ * Check if a user has won but only in vertical or horizontal
  * @param hOrV true the check is horizontal, false for vertical
- * @return if the user has won
+ * @return true if the choosed user has won
 */
-bool checkHV(Player user,bool hOrV) {
+bool checkHV(const game_map& map,Player user,bool hOrV) {
  
     for(int y=0; y < SIZE; y++) {
         int check = 0;
         for(int x=0; x < SIZE; x++) {
             // Get current value according to vertical or horizontal
-            Player player = hOrV ? MAP[x][y] : MAP[y][x];
+            Player player = hOrV ? map[x][y] : map[y][x];
         
             // If the case is check cout it
             if(player == user) {
@@ -48,15 +57,15 @@ bool checkHV(Player user,bool hOrV) {
 }
 
 /**
- * Check if a user win
+ * Check if a user won
  * @param player to be checked
  * @return the player 
 */
-bool check(Player user) {
+bool hasWon(const game_map& map, Player user) {
     int check = 0;
     // First diagonal
     for(int i=0; i < SIZE; i++) {
-        if(user == MAP[i][i]) {
+        if(user == map[i][i]) {
             check++;
         }
     }
@@ -69,7 +78,7 @@ bool check(Player user) {
     // Second diagonal
     check = 0;
     for(int i=0; i < SIZE; i++) {
-        if(user == MAP[SIZE-1-i][i]) {
+        if(user == map[SIZE-1-i][i]) {
             check++;
         }
     }
@@ -78,9 +87,13 @@ bool check(Player user) {
         return true;
     }
 
-    return  checkHV(user,true) || checkHV(user,false);
+    return  checkHV(map,user,true) || checkHV(map,user,false);
 }
 
+/**
+ * Get a string from a user
+ * @param player 
+*/
 std::string_view fromPlayer(Player player) {
     switch (player) {
         case Player::CIRCLE : return "O";
@@ -90,11 +103,15 @@ std::string_view fromPlayer(Player player) {
     }
 }
 
-void displayArray() {
+/**
+ * Dislay array 
+ * @param Game array to display
+*/
+void displayArray(const game_map& array) {
     //iterate on each case of the array
-    for (int y = 0; y < MAP.size(); y++) {
-        for (int x = 0; x < MAP[0].size(); x++) {
-            std::cout << " " << fromPlayer(MAP[y][x]) << " ";
+    for (int y = 0; y < array.size(); y++) {
+        for (int x = 0; x < array[0].size(); x++) {
+            std::cout << " " << fromPlayer(array[y][x]) << " ";
         }
         std::cout << std::endl;
     }
@@ -104,46 +121,51 @@ void displayArray() {
  * This method ask the user to check a case and then save it on the array
  * @param user the current user
  * @param isComputer if true the case is asked by the computer
- * @return false if an error occurred
+ * @return true if the choice is wrong
  */
-bool addACase(Player user) {
+bool wrongChoice(game_map& map, Player user) {
     std::cout << "User " << fromPlayer(user) << " give some coordinate (format:x,y):" << std::endl;
     
     // Ask user the coordinate of the case to check
     std::string caseToAdd;
-    getline(std::cin, caseToAdd);
+    std::cin >> caseToAdd;
 
-    //get single coordinate x or y
+    // Get single coordinate x or y
     std::string xString = caseToAdd.substr(0, caseToAdd.find(','));
     std::string yString = caseToAdd.substr(caseToAdd.find(',') + 1);
 
+
     // Convert the coordinate to map
-    Player& askedCase  = MAP[std::stoi(yString)][std::stoi(xString)];
-    //check if a player has halready use this position
-    if (askedCase == Player::NONE) {
-        askedCase = user;
-        return true;
+    try{
+        Player& askedCase  = map.at(std::stoi(yString)).at(std::stoi(xString));
+        // Check if a player is already on this case
+        if (askedCase == Player::NONE) {
+            askedCase = user;
+            return false;
+        }
+    } catch(std::exception &ex) {
+        std::cout << "Array out of bound" << std::endl;
     }
-    std::cout << "The case is already checked" << std::endl;
-    return false;
+
+    return true;
 }
 
 int main() {
 
-    Player currentUser = Player::CIRCLE;
-    while (!(check(Player::CIRCLE) || check(Player::CROSS))) {
-        bool isPassed = false;
-        while (!isPassed) {
-            isPassed = addACase(currentUser);
-        }
-        displayArray();
-        currentUser = switchUser(currentUser);
-    }
+    game_map map = {{{Player::NONE, Player::NONE, Player::NONE},   
+                    {Player::NONE, Player::NONE, Player::NONE},
+                    {Player::NONE, Player::NONE, Player::NONE}}};
 
-    if (check(Player::CIRCLE)) {
-        std::cout << "Player " << fromPlayer(Player::CIRCLE) << " has won" << std::endl;
-        return 0;
-    }
-    std::cout << "Player " << fromPlayer(Player::CROSS) << " has won" << std::endl;
+    
+    Player currentUser = Player::CIRCLE;
+    do{
+        currentUser = switchUser(currentUser);
+        while (wrongChoice(map, currentUser)) {
+          std::cout << "Wrong entry - try again" << std::endl;
+        }
+        displayArray(map);
+    }while(!hasWon(map, currentUser));
+
+    std::cout << "Player " << fromPlayer(currentUser) << " has won" << std::endl;
 
 }
